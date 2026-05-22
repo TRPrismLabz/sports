@@ -197,10 +197,16 @@ async function fetchWithAuth(url, options = {}) {
 // --- Dashboard ---
 let currentSport = "";
 let currentSort = "upcoming";
+let expandedGames = new Set();
 
-function toggleGame(headerEl) {
+function toggleGame(gid, headerEl) {
     const group = headerEl.parentElement;
     group.classList.toggle('expanded');
+    if (group.classList.contains('expanded')) {
+        expandedGames.add(gid);
+    } else {
+        expandedGames.delete(gid);
+    }
 }
 
 function formatDate(isoStr) {
@@ -274,21 +280,26 @@ async function fetchData() {
                 const label = opp.player ? `${opp.player} &mdash; ${opp.outcome}` : opp.outcome;
                 rowsHtml += `
                 <tr>
-                    <td class="val-market">${opp.market_type}</td>
-                    <td class="val-pick">${label}</td>
-                    <td class="val-mono">${opp.best_price.toFixed(2)}</td>
-                    <td class="val-mono">${(opp.true_prob * 100).toFixed(1)}%</td>
-                    <td><span class="tag-green">+${(opp.edge * 100).toFixed(2)}%</span></td>
-                    <td class="val-money">$${opp.kelly_amount.toFixed(2)}</td>
+                    <td data-label="Market" class="val-market">${opp.market_type}</td>
+                    <td data-label="Pick" class="val-pick">${label}</td>
+                    <td data-label="Odds" class="val-mono">${opp.best_price.toFixed(2)}</td>
+                    <td data-label="True Prob" class="val-mono">${(opp.true_prob * 100).toFixed(1)}%</td>
+                    <td data-label="Edge"><span class="tag-green">+${(opp.edge * 100).toFixed(2)}%</span></td>
+                    <td data-label="Kelly Size" class="val-money">$${opp.kelly_amount.toFixed(2)}</td>
                 </tr>`;
             });
 
             const card = document.createElement('div');
             card.className = 'game-group';
-            if (gameOrder.length <= 3) card.classList.add('expanded');
+            
+            // Auto-expand if fewer than 3 games total, or if it was manually expanded before
+            if (expandedGames.has(gid) || gameOrder.length <= 3) {
+                card.classList.add('expanded');
+                expandedGames.add(gid);
+            }
             
             card.innerHTML = `
-                <div class="game-header" onclick="toggleGame(this)">
+                <div class="game-header" onclick="toggleGame('${gid}', this)">
                     <div class="game-info-left">
                         <span class="sport-badge ${game.sport}">${game.sport}</span>
                         <span class="matchup">${game.home} vs ${game.away}</span>
