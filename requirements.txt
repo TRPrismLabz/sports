@@ -13,3 +13,4 @@ beautifulsoup4==4.12.3
 nba_api==1.4.1
 pandas==2.2.2
 lxml==5.2.1
+supabase

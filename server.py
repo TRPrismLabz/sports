@@ -15,7 +15,7 @@ from config import HOST, PORT, REFRESH_INTERVAL_MINUTES, SPORTS, MIN_EDGE_THRESH
 from database import (
     init_db, upsert_game, save_odds_snapshot, save_analysis,
     get_all_games, get_top_opportunities, get_game_count,
-    update_all_kelly_amounts
+    update_all_kelly_amounts, verify_user
 )
 from odds_client import OddsClient
 from analysis import SportsAnalysisEngine
@@ -188,11 +188,6 @@ async def dashboard():
 
 from fastapi import Header, HTTPException, Depends
 
-USERS = {
-    "admin": "admin",
-    "rosso": "Jack6"
-}
-
 async def verify_token(authorization: str = Header(None)):
     if not authorization or not authorization.endswith("_secret_token"):
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -203,7 +198,9 @@ async def login(request: Request):
     data = await request.json()
     u = data.get("username")
     p = data.get("password")
-    if USERS.get(u) == p:
+    
+    is_valid = await verify_user(u, p)
+    if is_valid:
         return {"token": f"{u}_secret_token"}
     raise HTTPException(status_code=401, detail="Invalid credentials")
 

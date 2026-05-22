@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rossbets Platform</title>
+    <title>Rossbets</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -12,7 +12,7 @@
 <div id="login-view">
     <div class="login-card">
         <span class="logo-text">ROSSBETS</span>
-        <p>Enter your credentials to access the quantitative engine.</p>
+        <p>Enter your credentials to access the platform.</p>
         
         <form id="loginForm" onsubmit="handleLogin(event)">
             <div class="input-group">
@@ -21,7 +21,7 @@
             </div>
             <div class="input-group">
                 <label class="input-label">Password</label>
-                <input type="password" id="passwordInput" class="auth-input" required placeholder="••••••••">
+                <input type="password" id="passwordInput" class="auth-input" required placeholder="Enter password">
             </div>
             
             <button type="submit" class="btn-primary" id="loginBtn">Sign In</button>
@@ -42,16 +42,8 @@
             
             <div class="nav-menu">
                 <div class="nav-item active">
-                    <span class="nav-icon">📊</span>
+                    <span class="nav-icon">&#9632;</span>
                     <span>Live Scanner</span>
-                </div>
-                <div class="nav-item">
-                    <span class="nav-icon">📈</span>
-                    <span>Performance</span>
-                </div>
-                <div class="nav-item">
-                    <span class="nav-icon">⚙️</span>
-                    <span>Settings</span>
                 </div>
             </div>
             
@@ -61,7 +53,7 @@
                     <div class="user-name" id="userNameDisplay">Admin</div>
                     <div class="user-role">Quant Trader</div>
                 </div>
-                <button class="btn-logout" onclick="logout()" title="Logout">🚪</button>
+                <button class="btn-logout" onclick="logout()" title="Logout">&#x2715;</button>
             </div>
         </aside>
 
@@ -70,7 +62,7 @@
             <div class="top-bar">
                 <div>
                     <h1 class="page-title">Dashboard</h1>
-                    <p class="page-subtitle">Real-time quantitative sports betting opportunities.</p>
+                    <p class="page-subtitle">Real-time quantitative edge detection across NRL, NBA and AFL.</p>
                 </div>
                 <div class="actions">
                     <div class="status-pill" id="statusPill">
@@ -86,7 +78,6 @@
                 <div class="kpi-widget primary">
                     <div class="kpi-header">
                         <span class="kpi-title">ACTIVE BANKROLL</span>
-                        <div class="kpi-icon">💰</div>
                     </div>
                     <div class="kpi-value">
                         <span>$</span>
@@ -97,7 +88,6 @@
                 <div class="kpi-widget">
                     <div class="kpi-header">
                         <span class="kpi-title">SIGNALS DETECTED</span>
-                        <div class="kpi-icon">🎯</div>
                     </div>
                     <div class="kpi-value" id="kpiOpps">0</div>
                 </div>
@@ -105,7 +95,6 @@
                 <div class="kpi-widget">
                     <div class="kpi-header">
                         <span class="kpi-title">GAMES TRACKED</span>
-                        <div class="kpi-icon">🏟️</div>
                     </div>
                     <div class="kpi-value" id="kpiGames">0</div>
                 </div>
@@ -125,7 +114,7 @@
                 
                 <div class="games-container" id="gamesContainer">
                     <div class="empty-state">
-                        <div class="icon">📡</div>
+                        <div class="icon">&#8212;</div>
                         <div>Awaiting scan cycle...</div>
                     </div>
                 </div>
@@ -135,10 +124,10 @@
 </div>
 
 <script>
-// --- Authentication Logic ---
-function getAuthToken() { return localStorage.getItem('quantsports_token'); }
-function setAuthToken(token) { localStorage.setItem('quantsports_token', token); }
-function clearAuthToken() { localStorage.removeItem('quantsports_token'); }
+// --- Authentication ---
+function getAuthToken() { return localStorage.getItem('rossbets_token'); }
+function setAuthToken(token) { localStorage.setItem('rossbets_token', token); }
+function clearAuthToken() { localStorage.removeItem('rossbets_token'); }
 
 async function handleLogin(e) {
     e.preventDefault();
@@ -160,8 +149,6 @@ async function handleLogin(e) {
         if (res.ok) {
             const data = await res.json();
             setAuthToken(data.token);
-            document.getElementById('userNameDisplay').innerText = u;
-            document.getElementById('userAvatar').innerText = u.charAt(0).toUpperCase();
             showDashboard();
         } else {
             err.style.display = 'block';
@@ -187,9 +174,8 @@ function showDashboard() {
     document.getElementById('login-view').style.display = 'none';
     document.getElementById('dashboard-view').style.display = 'block';
     
-    // Attempt to parse username from token for UI
     const token = getAuthToken();
-    if(token) {
+    if (token) {
         const u = token.split('_')[0];
         document.getElementById('userNameDisplay').innerText = u;
         document.getElementById('userAvatar').innerText = u.charAt(0).toUpperCase();
@@ -208,7 +194,7 @@ async function fetchWithAuth(url, options = {}) {
     return res;
 }
 
-// --- Dashboard Logic ---
+// --- Dashboard ---
 let currentSport = "";
 let currentSort = "upcoming";
 
@@ -219,7 +205,7 @@ function toggleGame(headerEl) {
 
 function formatDate(isoStr) {
     const d = new Date(isoStr);
-    return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return d.toLocaleString('en-AU', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 async function fetchData() {
@@ -236,14 +222,14 @@ async function fetchData() {
             brInput.value = statusData.bankroll.bankroll.toFixed(2);
         }
         
-        const gamesCount = Object.values(statusData.games_tracked).reduce((a,b)=>a+b,0);
+        const gamesCount = Object.values(statusData.games_tracked).reduce((a, b) => a + b, 0);
         document.getElementById('kpiGames').innerText = gamesCount;
         
         const pill = document.getElementById('statusPill');
         const text = document.getElementById('statusText');
         if (statusData.refresh_status === 'refreshing') {
             pill.className = 'status-pill refreshing';
-            text.innerText = 'Scanning live markets...';
+            text.innerText = 'Scanning...';
         } else {
             pill.className = 'status-pill';
             text.innerText = 'System Active';
@@ -262,8 +248,8 @@ async function fetchData() {
         if (oppsData.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="icon">🔍</div>
-                    <div>No mathematical edge >= 3% found.<br>The engine will continue scanning.</div>
+                    <div class="icon">&#8212;</div>
+                    <div>No edge >= 3% found in this category. Engine will continue scanning.</div>
                 </div>`;
             return;
         }
@@ -285,15 +271,14 @@ async function fetchData() {
             
             let rowsHtml = '';
             game.markets.forEach(opp => {
-                const label = opp.player ? `${opp.player} — ${opp.outcome}` : opp.outcome;
-                const edgeTag = `<span class="tag-green">+${(opp.edge * 100).toFixed(2)}%</span>`;
+                const label = opp.player ? `${opp.player} &mdash; ${opp.outcome}` : opp.outcome;
                 rowsHtml += `
                 <tr>
-                    <td class="val-market">${opp.market_type.toUpperCase()}</td>
+                    <td class="val-market">${opp.market_type}</td>
                     <td class="val-pick">${label}</td>
                     <td class="val-mono">${opp.best_price.toFixed(2)}</td>
                     <td class="val-mono">${(opp.true_prob * 100).toFixed(1)}%</td>
-                    <td>${edgeTag}</td>
+                    <td><span class="tag-green">+${(opp.edge * 100).toFixed(2)}%</span></td>
                     <td class="val-money">$${opp.kelly_amount.toFixed(2)}</td>
                 </tr>`;
             });
@@ -309,9 +294,9 @@ async function fetchData() {
                         <span class="matchup">${game.home} vs ${game.away}</span>
                     </div>
                     <div class="game-meta">
-                        <span class="market-count">${game.markets.length} Edges</span>
+                        <span class="market-count">${game.markets.length} edges</span>
                         <span>${formatDate(game.time)}</span>
-                        <span class="arrow-icon">▼</span>
+                        <span class="arrow-icon">&#9660;</span>
                     </div>
                 </div>
                 <div class="game-body">
@@ -335,12 +320,12 @@ async function fetchData() {
             container.appendChild(card);
         });
 
-    } catch(e) { console.error("API error", e); }
+    } catch(e) { console.error("Fetch error:", e); }
 }
 
 async function refreshData() {
     if (!getAuthToken()) return;
-    await fetchWithAuth('/api/refresh', {method: 'POST'});
+    await fetchWithAuth('/api/refresh', { method: 'POST' });
     fetchData();
 }
 
@@ -351,8 +336,8 @@ async function updateBankroll(value) {
     
     await fetchWithAuth('/api/bankroll/set', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({bankroll: amount})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bankroll: amount })
     });
     fetchData();
 }
@@ -367,7 +352,7 @@ document.querySelectorAll('.tab').forEach(btn => {
     });
 });
 
-if (getAuthToken()) { showDashboard(); } 
+if (getAuthToken()) { showDashboard(); }
 else { document.getElementById('login-view').style.display = 'flex'; }
 
 setInterval(() => {
@@ -375,7 +360,6 @@ setInterval(() => {
         fetchData();
     }
 }, 5000);
-
 </script>
 </body>
 </html>
