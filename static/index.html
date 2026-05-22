@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rossbets Engine</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- Login View -->
+<div id="login-view">
+    <div class="login-card">
+        <span class="logo-text">ROSSBETS</span>
+        <div class="login-subtitle">SECURE SYSTEM ACCESS</div>
+        
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="input-group">
+                <label class="input-label">Username</label>
+                <input type="text" id="usernameInput" class="auth-input" required autocomplete="off">
+            </div>
+            <div class="input-group">
+                <label class="input-label">Access Protocol</label>
+                <input type="password" id="passwordInput" class="auth-input" required>
+            </div>
+            
+            <button type="submit" class="btn-login" id="loginBtn">INITIALIZE SESSION</button>
+            <div id="loginError" class="error-msg">Invalid credentials. Access denied.</div>
+        </form>
+    </div>
+</div>
+
+<!-- Dashboard View -->
+<div id="dashboard-view" class="app" style="display: none;">
+    <!-- Header -->
+    <header class="header">
+        <div class="logo-container">
+            <span class="logo-text">ROSSBETS</span>
+            <span class="logo-version">v2.1 PRO</span>
+        </div>
+        <div style="display:flex; gap:16px; align-items:center;">
+            <div class="status-pill" id="statusPill">
+                <div class="pulse-dot" id="statusDot"></div>
+                <span id="statusText">System Initializing...</span>
+            </div>
+            <button class="btn-refresh" onclick="refreshData()">Force Scan</button>
+            <button class="btn-logout" onclick="logout()">Disconnect</button>
+        </div>
+    </header>
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+        <div class="kpi-card">
+            <div class="kpi-label">Active Bankroll (Editable)</div>
+            <div class="bankroll-container">
+                <span class="bankroll-currency">$</span>
+                <input type="number" id="kpiBankroll" class="bankroll-input" value="0.00" onchange="updateBankroll(this.value)" step="10">
+            </div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Edge Signal Count</div>
+            <div class="kpi-value mono green" id="kpiOpps">0</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Market Scanner</div>
+            <div class="kpi-value mono gold" id="kpiGames">0</div>
+        </div>
+    </div>
+
+    <!-- Main Panel -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">LIVE OPPORTUNITIES</div>
+            <div class="tabs">
+                <button class="tab-btn active" data-sport="" data-sort="upcoming">Upcoming</button>
+                <button class="tab-btn" data-sport="NBA" data-sort="upcoming">NBA</button>
+                <button class="tab-btn" data-sport="AFL" data-sort="upcoming">AFL</button>
+                <button class="tab-btn" data-sport="NRL" data-sort="upcoming">NRL</button>
+                <button class="tab-btn" data-sport="" data-sort="best">Best Picks</button>
+            </div>
+        </div>
+        <div class="games-list" id="gamesContainer">
+            <div class="empty-state">
+                <div class="icon">📡</div>
+                <div>Establishing connection to bookmakers and stats providers...<br>Awaiting first scan cycle.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- Authentication Logic ---
+function getAuthToken() {
+    return localStorage.getItem('quantsports_token');
+}
+
+function setAuthToken(token) {
+    localStorage.setItem('quantsports_token', token);
+}
+
+function clearAuthToken() {
+    localStorage.removeItem('quantsports_token');
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const u = document.getElementById('usernameInput').value;
+    const p = document.getElementById('passwordInput').value;
+    const btn = document.getElementById('loginBtn');
+    const err = document.getElementById('loginError');
+    
+    btn.innerText = "AUTHENTICATING...";
+    err.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username: u, password: p})
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            setAuthToken(data.token);
+            showDashboard();
+        } else {
+            err.style.display = 'block';
+            btn.innerText = "INITIALIZE SESSION";
+        }
+    } catch (error) {
+        err.style.display = 'block';
+        err.innerText = "Connection error.";
+        btn.innerText = "INITIALIZE SESSION";
+    }
+}
+
+function logout() {
+    clearAuthToken();
+    document.getElementById('dashboard-view').style.display = 'none';
+    document.getElementById('login-view').style.display = 'flex';
+    document.getElementById('usernameInput').value = '';
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('loginBtn').innerText = "INITIALIZE SESSION";
+    document.getElementById('loginError').style.display = 'none';
+}
+
+function showDashboard() {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('dashboard-view').style.display = 'block';
+    fetchData();
+}
+
+async function fetchWithAuth(url, options = {}) {
+    const token = getAuthToken();
+    if (!token) {
+        logout();
+        return null;
+    }
+    
+    const headers = {
+        ...options.headers,
+        'Authorization': token
+    };
+    
+    const res = await fetch(url, { ...options, headers });
+    if (res.status === 401) {
+        logout();
+        return null;
+    }
+    return res;
+}
+
+// --- Dashboard Logic ---
+let currentSport = "";
+let currentSort = "upcoming";
+
+function toggleGame(headerEl) {
+    const card = headerEl.parentElement;
+    card.classList.toggle('expanded');
+}
+
+function formatDate(isoStr) {
+    const d = new Date(isoStr);
+    return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+async function fetchData() {
+    if (!getAuthToken()) return;
+
+    try {
+        const statusRes = await fetchWithAuth('/api/status');
+        if (!statusRes) return;
+        
+        const statusData = await statusRes.json();
+        
+        // Only update bankroll if input is not focused to prevent overwriting user typing
+        const brInput = document.getElementById('kpiBankroll');
+        if (document.activeElement !== brInput) {
+            brInput.value = statusData.bankroll.bankroll.toFixed(2);
+        }
+        
+        const gamesCount = Object.values(statusData.games_tracked).reduce((a,b)=>a+b,0);
+        document.getElementById('kpiGames').innerText = gamesCount;
+        
+        const pill = document.getElementById('statusPill');
+        const text = document.getElementById('statusText');
+        if (statusData.refresh_status === 'refreshing') {
+            pill.className = 'status-pill refreshing';
+            text.innerText = 'Scanning live markets...';
+        } else {
+            pill.className = 'status-pill';
+            text.innerText = 'Live Feed Active';
+        }
+
+        let url = `/api/opportunities?min_edge=0.03&limit=200&sort=${currentSort}`;
+        if (currentSport) url += `&sport=${currentSport}`;
+        
+        const oppsRes = await fetchWithAuth(url);
+        if (!oppsRes) return;
+        
+        const oppsData = await oppsRes.json();
+        document.getElementById('kpiOpps').innerText = oppsData.length;
+        
+        const container = document.getElementById('gamesContainer');
+        if (oppsData.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">🔍</div>
+                    <div>No mathematical edge >= 3% found in this category.<br>The engine will continue scanning.</div>
+                </div>`;
+            return;
+        }
+
+        // Group by game
+        const grouped = {};
+        const gameOrder = []; // maintain sort order
+        oppsData.forEach(opp => {
+            const gid = opp.game_id;
+            if (!grouped[gid]) {
+                grouped[gid] = {
+                    sport: opp.sport,
+                    home: opp.home_team,
+                    away: opp.away_team,
+                    time: opp.commence_time,
+                    markets: []
+                };
+                gameOrder.push(gid);
+            }
+            grouped[gid].markets.push(opp);
+        });
+
+        container.innerHTML = '';
+        gameOrder.forEach(gid => {
+            const game = grouped[gid];
+            
+            // Generate rows
+            let rowsHtml = '';
+            game.markets.forEach(opp => {
+                const label = opp.player ? `${opp.player} — ${opp.outcome}` : opp.outcome;
+                rowsHtml += `
+                <tr>
+                    <td style="color:var(--text-secondary)">${opp.market_type.toUpperCase()}</td>
+                    <td style="font-weight:600;color:var(--text-primary)">${label}</td>
+                    <td class="mono">${opp.best_price.toFixed(2)}</td>
+                    <td class="mono">${(opp.true_prob * 100).toFixed(1)}%</td>
+                    <td class="mono ${opp.edge > 0 ? 'green' : 'red'}">${opp.edge > 0 ? '+' : ''}${(opp.edge * 100).toFixed(2)}%</td>
+                    <td class="mono" style="color:var(--accent-gold)">$${opp.kelly_amount.toFixed(2)}</td>
+                    <td class="mono ${opp.ev_pct > 0 ? 'green' : 'red'}">${opp.ev_pct > 0 ? '+' : ''}${opp.ev_pct.toFixed(1)}%</td>
+                </tr>`;
+            });
+
+            const card = document.createElement('div');
+            card.className = 'game-card';
+            // Auto expand if there are 3 or fewer games total, otherwise collapse
+            if (gameOrder.length <= 3) card.classList.add('expanded');
+            
+            card.innerHTML = `
+                <div class="game-header" onclick="toggleGame(this)">
+                    <div class="game-info">
+                        <span class="sport-pill ${game.sport}">${game.sport}</span>
+                        <span class="game-title">${game.home} v ${game.away}</span>
+                        <span class="market-count">${game.markets.length} Edges</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <span class="game-time">${formatDate(game.time)}</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="game-markets">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Market</th>
+                                    <th>Algorithm Pick</th>
+                                    <th>Odds</th>
+                                    <th>True Prob</th>
+                                    <th>Edge %</th>
+                                    <th>Kelly Bet</th>
+                                    <th>EV %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+
+    } catch(e) {
+        console.error("API error", e);
+    }
+}
+
+async function refreshData() {
+    if (!getAuthToken()) return;
+    await fetchWithAuth('/api/refresh', {method: 'POST'});
+    fetchData();
+}
+
+async function updateBankroll(value) {
+    if (!getAuthToken()) return;
+    const amount = parseFloat(value);
+    if (isNaN(amount) || amount <= 0) return;
+    
+    await fetchWithAuth('/api/bankroll/set', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({bankroll: amount})
+    });
+    fetchData(); // Refresh UI to show new kelly sizes
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentSport = e.target.dataset.sport;
+        currentSort = e.target.dataset.sort;
+        fetchData();
+    });
+});
+
+// Initialization
+if (getAuthToken()) {
+    showDashboard();
+} else {
+    document.getElementById('login-view').style.display = 'flex';
+}
+
+setInterval(() => {
+    if (getAuthToken() && document.getElementById('dashboard-view').style.display === 'block') {
+        fetchData();
+    }
+}, 5000);
+
+</script>
+</body>
+</html>
