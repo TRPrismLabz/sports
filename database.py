@@ -126,17 +126,19 @@ async def get_game_count() -> dict:
         return counts
     return await asyncio.to_thread(_run)
 
-async def update_all_kelly_amounts(new_bankroll: float):
+async def get_user_bankroll(username: str) -> float:
+    if not supabase: return 1000.0
+    def _run():
+        res = supabase.table("app_users").select("bankroll").eq("username", username).execute()
+        if res.data and "bankroll" in res.data[0]:
+            return float(res.data[0]["bankroll"] or 1000.0)
+        return 1000.0
+    return await asyncio.to_thread(_run)
+
+async def update_user_bankroll(username: str, new_bankroll: float):
     if not supabase: return
     def _run():
-        # Supabase doesn't easily support bulk math updates natively via SDK without RPC.
-        # We'll fetch all upcoming edges and update them in bulk or loop.
-        res = supabase.table("analysis_results").select("id, kelly_fraction, games!inner(status)").eq("games.status", "upcoming").execute()
-        
-        for r in res.data:
-            new_amount = (r["kelly_fraction"] / 100.0) * new_bankroll
-            supabase.table("analysis_results").update({"kelly_amount": new_amount}).eq("id", r["id"]).execute()
-            
+        supabase.table("app_users").update({"bankroll": new_bankroll}).eq("username", username).execute()
     await asyncio.to_thread(_run)
 
 async def verify_user(username: str, password_hash: str) -> bool:

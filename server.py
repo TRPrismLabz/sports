@@ -15,7 +15,7 @@ from config import HOST, PORT, REFRESH_INTERVAL_MINUTES, SPORTS, MIN_EDGE_THRESH
 from database import (
     init_db, upsert_game, save_odds_snapshot, save_analysis,
     get_all_games, get_top_opportunities, get_game_count,
-    update_all_kelly_amounts, verify_user
+    get_user_bankroll, update_user_bankroll, verify_user
 )
 from odds_client import OddsClient
 from analysis import SportsAnalysisEngine
@@ -191,7 +191,7 @@ from fastapi import Header, HTTPException, Depends
 async def verify_token(authorization: str = Header(None)):
     if not authorization or not authorization.endswith("_secret_token"):
         raise HTTPException(status_code=401, detail="Unauthorized")
-    return True
+    return authorization.split("_secret_token")[0]
 
 @app.post("/api/login")
 async def login(request: Request):
@@ -205,14 +205,16 @@ async def login(request: Request):
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @app.get("/api/status")
-async def status(authorized: bool = Depends(verify_token)):
+async def status(username: str = Depends(verify_token)):
     counts = await get_game_count()
+    user_bankroll = await get_user_bankroll(username)
+    temp_mgr = BankrollManager(bankroll=user_bankroll)
     return {
         "status": "running",
         "games_tracked": counts,
         "last_refresh": _last_refresh,
         "refresh_status": _refresh_status,
-        "bankroll": bankroll_mgr.summary(),
+        "bankroll": temp_mgr.summary(),
         "quota": odds_client.quota_info
     }
 
@@ -222,17 +224,23 @@ async def list_games(sport: str = None, authorized: bool = Depends(verify_token)
     return games
 
 @app.get("/api/opportunities")
-async def get_opportunities(min_edge: float = 0.03, limit: int = 50, sport: str = None, sort: str = "best", authorized: bool = Depends(verify_token)):
+async def get_opportunities(min_edge: float = 0.03, limit: int = 50, sport: str = None, sort: str = "best", username: str = Depends(verify_token)):
+    user_bankroll = await get_user_bankroll(username)
     opps = await get_top_opportunities(min_edge=min_edge, limit=limit, sport=sport, sort=sort)
+    # Calculate exact dollar amount dynamically for this specific user
+    for opp in opps:
+        frac = opp.get("kelly_fraction", 0)
+        opp["kelly_amount"] = (frac / 100.0) * user_bankroll
     return opps
 
 @app.post("/api/bankroll/set")
-async def set_bankroll(request: Request, authorized: bool = Depends(verify_token)):
+async def set_bankroll(request: Request, username: str = Depends(verify_token)):
     data = await request.json()
     amount = float(data.get("bankroll", 1000))
-    bankroll_mgr.update_bankroll(amount)
-    await update_all_kelly_amounts(amount)
-    return bankroll_mgr.summary()
+    await update_user_bankroll(username, amount)
+    
+    temp_mgr = BankrollManager(bankroll=amount)
+    return temp_mgr.summary()
 
 @app.post("/api/bankroll/kelly")
 async def set_kelly_mode(request: Request, authorized: bool = Depends(verify_token)):
