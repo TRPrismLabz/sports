@@ -6,7 +6,6 @@ for NRL, NBA, and AFL.
 import httpx
 import asyncio
 from typing import Optional
-from datetime import datetime, timezone
 from config import ODDS_API_KEY, ODDS_API_BASE, SPORTS
 
 
@@ -34,7 +33,8 @@ class OddsClient:
     async def fetch_games(self, sport_key: str) -> list:
         """Fetch upcoming games for a sport."""
         if not self.api_key:
-            return self._mock_games(sport_key)
+            print("[OddsClient] No API key configured.")
+            return []
 
         session = await self._get_session()
         url = f"{self.base}/sports/{sport_key}/events"
@@ -48,7 +48,7 @@ class OddsClient:
             return r.json()
         except Exception as e:
             print(f"[OddsClient] Error fetching games for {sport_key}: {e}")
-            return self._mock_games(sport_key)
+            return []
 
     async def fetch_odds(self, sport_key: str, markets: list,
                           event_ids: Optional[list] = None,
@@ -151,87 +151,7 @@ class OddsClient:
                             })
         return sorted(prices, key=lambda x: x["price"], reverse=True)
 
-    # ── Mock data for demo when no API key ─────────────────────────────────────
 
-    def _mock_games(self, sport_key: str) -> list:
-        """Return realistic mock games for demo purposes."""
-        now = datetime.now(timezone.utc)
-        from datetime import timedelta
-
-        if "rugby" in sport_key or "nrl" in sport_key.lower():
-            return [
-                {
-                    "id": "nrl_001", "sport_key": sport_key,
-                    "home_team": "Sydney Roosters", "away_team": "Melbourne Storm",
-                    "commence_time": (now + timedelta(days=1, hours=8)).isoformat(),
-                },
-                {
-                    "id": "nrl_002", "sport_key": sport_key,
-                    "home_team": "Penrith Panthers", "away_team": "Brisbane Broncos",
-                    "commence_time": (now + timedelta(days=1, hours=10)).isoformat(),
-                },
-                {
-                    "id": "nrl_003", "sport_key": sport_key,
-                    "home_team": "South Sydney Rabbitohs", "away_team": "Parramatta Eels",
-                    "commence_time": (now + timedelta(days=2, hours=9)).isoformat(),
-                },
-                {
-                    "id": "nrl_004", "sport_key": sport_key,
-                    "home_team": "North Queensland Cowboys", "away_team": "Gold Coast Titans",
-                    "commence_time": (now + timedelta(days=2, hours=11)).isoformat(),
-                },
-                {
-                    "id": "nrl_005", "sport_key": sport_key,
-                    "home_team": "Cronulla-Sutherland Sharks", "away_team": "Manly-Warringah Sea Eagles",
-                    "commence_time": (now + timedelta(days=3, hours=9)).isoformat(),
-                },
-            ]
-        elif "basketball" in sport_key or "nba" in sport_key.lower():
-            return [
-                {
-                    "id": "nba_001", "sport_key": sport_key,
-                    "home_team": "Boston Celtics", "away_team": "Miami Heat",
-                    "commence_time": (now + timedelta(hours=6)).isoformat(),
-                },
-                {
-                    "id": "nba_002", "sport_key": sport_key,
-                    "home_team": "Golden State Warriors", "away_team": "Los Angeles Lakers",
-                    "commence_time": (now + timedelta(hours=9)).isoformat(),
-                },
-                {
-                    "id": "nba_003", "sport_key": sport_key,
-                    "home_team": "Denver Nuggets", "away_team": "Minnesota Timberwolves",
-                    "commence_time": (now + timedelta(days=1, hours=5)).isoformat(),
-                },
-                {
-                    "id": "nba_004", "sport_key": sport_key,
-                    "home_team": "Oklahoma City Thunder", "away_team": "Dallas Mavericks",
-                    "commence_time": (now + timedelta(days=1, hours=7)).isoformat(),
-                },
-            ]
-        else:  # AFL
-            return [
-                {
-                    "id": "afl_001", "sport_key": sport_key,
-                    "home_team": "Hawthorn Hawks", "away_team": "Geelong Cats",
-                    "commence_time": (now + timedelta(days=1, hours=7)).isoformat(),
-                },
-                {
-                    "id": "afl_002", "sport_key": sport_key,
-                    "home_team": "Richmond Tigers", "away_team": "Collingwood Magpies",
-                    "commence_time": (now + timedelta(days=1, hours=9)).isoformat(),
-                },
-                {
-                    "id": "afl_003", "sport_key": sport_key,
-                    "home_team": "Brisbane Lions", "away_team": "Carlton Blues",
-                    "commence_time": (now + timedelta(days=2, hours=8)).isoformat(),
-                },
-                {
-                    "id": "afl_004", "sport_key": sport_key,
-                    "home_team": "Port Adelaide Power", "away_team": "Adelaide Crows",
-                    "commence_time": (now + timedelta(days=2, hours=10)).isoformat(),
-                },
-            ]
 
     @property
     def quota_info(self) -> dict:
